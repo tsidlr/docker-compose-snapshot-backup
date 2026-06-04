@@ -27,15 +27,16 @@ This produces a single `.tar` file containing:
 
 ```
 snapshot_myproject_20260603_120000.tar
-├── start.bat   ← Windows: double-click to restore
+├── start.bat              ← Windows: double-click to restore
 ├── restore.ps1            ← PowerShell restore logic
+├── restore.sh             ← Linux / macOS restore script
 ├── snapshot-info.txt      ← metadata
 ├── images.tar             ← all Docker images (collision-safe tags)
 ├── volumes/               ← all named volumes
 └── repo/                  ← complete project with patched docker-compose.yaml
 ```
 
-The recipient (developer, tester, or project manager) extracts the archive and double-clicks `start.bat`. That's it — all containers start immediately with the exact same state.
+The recipient extracts the archive and runs the restore script for their platform. All containers start immediately with the exact same state.
 
 ---
 
@@ -44,7 +45,7 @@ The recipient (developer, tester, or project manager) extracts the archive and d
 - **Complete snapshot** — images, volumes, config and repo in one file
 - **Collision-safe** — all image tags, volume names, container names and the Compose project name are automatically suffixed with `projectname_timestamp` — multiple snapshots never interfere with each other
 - **Auto-patched docker-compose.yaml** — image tags, volume names, container names and `name:` are all rewritten automatically so `docker compose up` works out of the box
-- **Windows restore for non-developers** — `start.bat` checks for Docker, gives clear error messages, and starts everything with a double-click
+- **One-command restore** — `start.bat` (Windows double-click) or `./restore.sh` (Linux/macOS) — checks for Docker, gives clear error messages, starts everything automatically
 - **Angular dist/ support** — active bind-mounts pointing to local frontend build artifacts are detected and included automatically
 - **No registry needed** — everything is self-contained, no access to GitLab/Docker Hub required
 - **Works across machines** — path-independent, runs anywhere Docker Desktop is installed
@@ -57,8 +58,8 @@ The recipient (developer, tester, or project manager) extracts the archive and d
 - Linux, macOS, or Windows with Git Bash / WSL
 - Docker + Docker Compose
 
-**To restore a snapshot (developer or non-developer):**
-- Windows with [Docker Desktop](https://www.docker.com/products/docker-desktop)
+**To restore a snapshot:**
+- Any OS with [Docker Desktop](https://www.docker.com/products/docker-desktop) (or Docker Engine on Linux)
 
 ---
 
@@ -82,24 +83,13 @@ Output: `snapshot_myproject_20260603_120000.tar`
 2. Double-click `start.bat`
 3. Done — all containers start automatically
 
-### Restore a snapshot (Developer / CLI)
+### Restore a snapshot (Linux / macOS)
 
 ```bash
-# Extract the tar
 tar xf snapshot_myproject_20260603_120000.tar
 cd snapshot_myproject_20260603_120000
-
-# Load images
-docker load < images.tar
-
-# Restore volumes (repeat for each volume)
-docker volume create <volume-name>
-docker run --rm -v <volume-name>:/volume_data -v $(pwd)/volumes:/backup \
-  alpine sh -c "tar xzf /backup/<volume-key>.tar.gz -C /volume_data"
-
-# Start
-cd repo
-docker compose up -d
+chmod +x restore.sh
+./restore.sh
 ```
 
 ---
@@ -114,7 +104,7 @@ When you run `snapshot.sh`, it:
 4. **Patches `docker-compose.yaml`** — rewrites all image tags, volume names, container names and the project `name:` field
 5. **Exports all images** into a single `images.tar`
 6. **Exports all named volumes** as compressed archives
-7. **Generates `start.bat` and `restore.ps1`** inside the snapshot
+7. **Generates `start.bat`, `restore.ps1` and `restore.sh`** inside the snapshot
 8. **Packs everything** into one `.tar` file
 
 The result: a fully portable, collision-safe snapshot that works on any machine with Docker Desktop — no external dependencies, no registry access, no manual configuration.
@@ -144,7 +134,6 @@ The result: a fully portable, collision-safe snapshot that works on any machine 
 
 ## Roadmap
 
-- [ ] Linux/macOS restore script
 - [ ] `--exclude-volumes` flag
 - [ ] `--exclude-services` flag
 - [ ] Checksum verification on restore

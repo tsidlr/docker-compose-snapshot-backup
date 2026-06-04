@@ -256,7 +256,97 @@ printf '%s\n' \
 'Write-Host "-----------------------------------------"' \
 > "$SNAPSHOT_DIR/restore.ps1"
 
-echo "✅ start.bat and restore.ps1 generated"
+# Generate restore.sh (Linux / macOS)
+cat > "$SNAPSHOT_DIR/restore.sh" << 'RESTOREEOF'
+#!/bin/bash
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
+step() { echo -e "${CYAN}$*${NC}"; }
+ok()   { echo -e "${GREEN}$*${NC}"; }
+warn() { echo -e "${YELLOW}$*${NC}"; }
+fail() { echo -e "${RED}$*${NC}"; }
+
+echo ""
+echo "Restoring environment"
+echo "-----------------------------------------"
+
+if ! command -v docker &>/dev/null; then
+  fail "Docker is not installed."
+  echo "   Please install Docker: https://docs.docker.com/get-docker/"
+  exit 1
+fi
+
+if ! docker info &>/dev/null; then
+  fail "Docker is installed but not running."
+  echo "   Please start Docker and try again."
+  exit 1
+fi
+
+echo ""
+step "Loading images... (this may take a few minutes)"
+IMAGES_FILE="$SCRIPT_DIR/images.tar"
+if [ ! -f "$IMAGES_FILE" ]; then
+  fail "images.tar not found in: $SCRIPT_DIR"
+  exit 1
+fi
+docker load -i "$IMAGES_FILE"
+ok "Images loaded"
+
+VOLUMES_PATH="$SCRIPT_DIR/volumes"
+REPO_PATH="$SCRIPT_DIR/repo"
+COMPOSE_PATH="$REPO_PATH/docker-compose.yml"
+[ ! -f "$COMPOSE_PATH" ] && COMPOSE_PATH="$REPO_PATH/docker-compose.yaml"
+
+if [ -d "$VOLUMES_PATH" ] && ls "$VOLUMES_PATH"/*.tar.gz &>/dev/null; then
+  echo ""
+  step "Restoring volumes..."
+  COMPOSE_CONTENT=$(cat "$COMPOSE_PATH")
+  for vol_archive in "$VOLUMES_PATH"/*.tar.gz; do
+    VOL_KEY=$(basename "$vol_archive" .tar.gz)
+    FULL_VOL_NAME=$(echo "$COMPOSE_CONTENT" | awk "
+      /^volumes:/ { in_vol=1 }
+      in_vol && /^  ${VOL_KEY}:/ { found=1 }
+      found && /name:/ { match(\$0, /name:[[:space:]]+([^[:space:]]+)/, a); print a[1]; exit }
+    ")
+    if [ -n "$FULL_VOL_NAME" ]; then
+      echo "   o $VOL_KEY -> $FULL_VOL_NAME"
+      docker volume create "$FULL_VOL_NAME" > /dev/null
+      if docker run --rm \
+        -v "${FULL_VOL_NAME}:/volume_data" \
+        -v "${VOLUMES_PATH}:/backup" \
+        alpine sh -c "rm -rf /volume_data/* /volume_data/.[!.]* 2>/dev/null; tar xzf /backup/${VOL_KEY}.tar.gz -C /volume_data"; then
+        ok "     Done"
+      else
+        warn "     Error filling volume"
+      fi
+    else
+      warn "   Volume $VOL_KEY not found in compose — skipping."
+    fi
+  done
+  ok "Volumes restored"
+else
+  warn "No volumes in snapshot."
+fi
+
+echo ""
+step "Starting containers..."
+cd "$REPO_PATH"
+docker compose up -d
+echo ""
+echo "-----------------------------------------"
+ok "Done! All containers are running."
+echo ""
+docker compose ps 2>/dev/null || true
+echo ""
+echo "   To stop: docker compose down"
+echo "-----------------------------------------"
+RESTOREEOF
+chmod +x "$SNAPSHOT_DIR/restore.sh"
+
+echo "✅ start.bat, restore.ps1 and restore.sh generated"
 
 # ── Generate snapshot-info.txt ────────────────
 cat > "$SNAPSHOT_DIR/snapshot-info.txt" << INFOEOF
