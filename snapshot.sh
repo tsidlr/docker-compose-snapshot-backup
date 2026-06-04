@@ -87,7 +87,7 @@ echo ""
 echo "🔍 Scanning for active dist/ bind-mounts..."
 
 # Active (non-commented) volume lines with filesystem paths (., .., /, ~) containing dist/
-grep -E "^\s+-\s+[./~]" "$SNAPSHOT_DIR/repo/$COMPOSE_FILE" | grep "dist" | while IFS= read -r line; do
+while IFS= read -r line; do
   # Extract source path (everything before first :)
   BIND_SRC=$(echo "$line" | sed -E 's/^\s+-\s+([^:]+):.*/\1/' | tr -d ' ')
 
@@ -113,7 +113,7 @@ grep -E "^\s+-\s+[./~]" "$SNAPSHOT_DIR/repo/$COMPOSE_FILE" | grep "dist" | while
   sed -i "s|${BIND_SRC}|${NEW_PATH}|g" "$SNAPSHOT_DIR/repo/$COMPOSE_FILE"
 
   echo "   ✅ $BIND_SRC → $NEW_PATH"
-done
+done < <(grep -E "^\s+-\s+[./~]" "$SNAPSHOT_DIR/repo/$COMPOSE_FILE" | grep "dist")
 echo "✅ Bind-mounts checked"
 
 # ── Generate restore scripts ──────────────────
