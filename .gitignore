@@ -1,0 +1,8 @@
+# Snapshots created by snapshot.sh
+snapshot_*.tar
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
