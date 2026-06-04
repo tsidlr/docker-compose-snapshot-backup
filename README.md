@@ -65,32 +65,67 @@ The recipient extracts the archive and runs the restore script for their platfor
 
 ## Usage
 
-### Create a snapshot
+### Create a snapshot (Linux / macOS)
 
 ```bash
-# Navigate to your docker-compose project
-cd my-project
+# Download the script (once)
+curl -O https://raw.githubusercontent.com/tsidlr/docker-compose-snapshot-backup/main/snapshot.sh
+chmod +x snapshot.sh
 
-# Run snapshot.sh from wherever you placed it
+# Navigate to your docker-compose project and run it
+cd my-project
 ../snapshot.sh
+```
+
+### Create a snapshot (Windows — Git Bash or WSL)
+
+```bash
+# Download the script (once)
+curl -O https://raw.githubusercontent.com/tsidlr/docker-compose-snapshot-backup/main/snapshot.sh
+
+# Navigate to your docker-compose project and run it
+cd my-project
+bash ../snapshot.sh
 ```
 
 Output: `snapshot_myproject_20260603_120000.tar`
 
+---
+
 ### Restore a snapshot (Windows)
 
-1. Extract the `.tar` file
-2. Double-click `start.bat`
-3. Done — all containers start automatically
+#### Step 1 — Extract the `.tar` file
+
+Windows 11 has `tar` built in — run in PowerShell or CMD:
+
+```powershell
+tar xf snapshot_myproject_20260603_120000.tar
+```
+
+On older Windows, use [7-Zip](https://www.7-zip.org) to extract.
+
+#### Step 2 — Run the restore
+
+Open the extracted folder and double-click `start.bat`. The script will:
+
+- Check if Docker Desktop is installed and running
+- Load all images
+- Restore all volumes
+- Start all containers
+
+Done — all containers are running.
+
+---
 
 ### Restore a snapshot (Linux / macOS)
 
 ```bash
 tar xf snapshot_myproject_20260603_120000.tar
 cd snapshot_myproject_20260603_120000
-chmod +x restore.sh
 ./restore.sh
 ```
+
+The script checks for Docker, loads images, restores volumes and starts all containers — same behavior as on Windows.
 
 ---
 
