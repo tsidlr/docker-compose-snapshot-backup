@@ -246,6 +246,22 @@ printf '%s\n' \
 'Write-Host ""' \
 'Write-Step "Starting containers..."' \
 'Set-Location $RepoPath' \
+'' \
+'# Create missing external networks' \
+'$configLines = (docker compose config 2>$null) -split "`n"' \
+'$foundExternal = $false' \
+'foreach ($line in $configLines) {' \
+'    if ($line -match "external:\s*true") { $foundExternal = $true }' \
+'    if ($foundExternal -and $line -match "name:\s*(\S+)") {' \
+'        $netName = $Matches[1]' \
+'        $foundExternal = $false' \
+'        $netExists = docker network ls --format "{{.Name}}" 2>$null | Where-Object { $_ -eq $netName }' \
+'        if (-not $netExists) {' \
+'            docker network create $netName | Out-Null' \
+'            Write-Ok "   Created network: $netName"' \
+'        }' \
+'    }' \
+'}' \
 'docker compose up -d' \
 'Write-Host ""' \
 'Write-Host "-----------------------------------------"' \
@@ -335,6 +351,18 @@ fi
 echo ""
 step "Starting containers..."
 cd "$REPO_PATH"
+
+# Create missing external networks
+docker compose config 2>/dev/null | awk '
+  /external: true/ { found=1 }
+  found && /name:/ { print $2; found=0 }
+' | while read -r netname; do
+  if ! docker network inspect "$netname" &>/dev/null; then
+    docker network create "$netname" > /dev/null
+    ok "   Created network: $netname"
+  fi
+done
+
 docker compose up -d
 echo ""
 echo "-----------------------------------------"
