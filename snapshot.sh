@@ -79,7 +79,8 @@ mkdir -p "$SNAPSHOT_DIR/volumes"
 # ── Copy repo ─────────────────────────────────
 echo ""
 echo "📂 Copying repo..."
-cp -r "$(pwd)/." "$SNAPSHOT_DIR/repo/"
+mkdir -p "$SNAPSHOT_DIR/repo"
+tar cf - --exclude="*.tar" -C "$(pwd)" . | tar xf - -C "$SNAPSHOT_DIR/repo"
 echo "✅ Repo copied"
 
 # ── Detect active dist/ bind-mounts and include them ─────────────────────────
@@ -407,8 +408,9 @@ while IFS= read -r service; do
 done <<< "$SERVICE_NAMES"
 echo "   • container_name set for all services"
 
-# Bundle all re-tagged images in a single docker save
+# Bundle all re-tagged images + alpine (needed for volume restore) in a single docker save
 echo "   Bundling images..."
+echo "alpine:latest" >> "$TAGGED_IMAGE_LIST"
 xargs docker save < "$TAGGED_IMAGE_LIST" > "$SNAPSHOT_DIR/images.tar"
 
 # Remove temporary tags
